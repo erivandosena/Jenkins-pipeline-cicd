@@ -1,0 +1,97 @@
+########################
+# Usando Docker
+# docker run -r --name jenkins -p 8081:8080 -p 50001:50000 jenkins/jenkins:lts
+# sudo sysctl -w vm.max_map_count=262144
+# docker run -d --name sonarqube -p 9001:9000 -p 9093:9092 -v sonarqube_conf:/opt/sonarqube/conf -v sonarqube_data:/opt/sonarqube/data -v sonarqube_logs:/opt/sonarqube/logs -v sonarqube_extensions:/opt/sonarqube/extensions -v sonarqube_bundled_plugins:/opt/sonarqube/lib/bundled-plugins sonarqube:community
+########################
+# Usando Docker-compose
+########################
+# docker-compose up --build -d
+# docker container logs -f jenkins
+# docker container logs -f sonarqube
+########################
+# Data: 28/02/2022 - Erivando Sena
+
+version: '3'
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    restart: always
+    privileged: true
+    user: root
+    ports:
+      - 8081:8080
+      - 50001:50000
+    dns:
+      - 8.8.8.8
+      - 4.4.4.4
+      - 138.36.0.70
+    volumes:
+      - jenkins_data:/var/jenkins_home
+    networks:
+      - jenkins_network
+
+  postgres:
+    image: postgres:14
+    container_name: postgresql
+    restart: always
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    ports:
+      - 5432:5432
+    volumes:
+      - postgresql_data:/var/lib/postgresql/data
+    networks:
+      - postgres_network
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    restart: always
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    depends_on:
+      - postgres
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://postgres:5432/sonar 
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    ports:
+      - 9002:9000
+      - 9093:9092
+    volumes:
+      - sonarqube_conf:/opt/sonarqube/conf
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_bundled_plugins:/opt/sonarqube/lib/bundled-plugins
+    networks:
+      - sonarqube_network
+      - postgres_network
+
+volumes:
+  jenkins_data:
+  sonarqube_conf:
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+  sonarqube_bundled_plugins:
+  postgresql_data:
+  
+networks:
+  jenkins_network:
+    driver: bridge
+  sonarqube_network:
+    driver: bridge
+  postgres_network:
+    driver: bridge
+    
